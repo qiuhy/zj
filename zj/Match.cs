@@ -8,11 +8,15 @@ namespace zj
         public delegate void onAfterMatch(List<Match> result, int matchCount, int listCount, int maxLevel);
         public static onAfterMatch afterMatch = null;
 
+        public static readonly int matchMothed_In2Out = 0;
+        public static readonly int matchMothed_Out2In = 1;
+
         private List<Bill> _toMatchBills;
-        private Stack<Bill> _matchedBills = new Stack<Bill>();
+        private List<Bill> _matchedBills = new List<Bill>();
         private double _amount = 0;
         private double _sum = 0;
         private double _allowDeviation = 0;
+        private int _matchMothed = matchMothed_In2Out;
 
         public Match(Bill toMatch, double allowDeviation)
         {
@@ -31,8 +35,8 @@ namespace zj
             _allowDeviation = allowDeviation;
         }
 
-        public double sum { get => _sum; set => _sum = value; }
-        public double diff { get => _amount - _sum; }
+        public double sum { get => _sum; }
+        public double diff { get => _amount - sum; }
 
         //匹配度
         public double rate { get => sum / _amount; }
@@ -44,7 +48,7 @@ namespace zj
 
         public List<Bill> toMatchBills { get => _toMatchBills; }
 
-        public Stack<Bill> matchedBills { get => _matchedBills; }
+        public List<Bill> matchedBills { get => _matchedBills; }
 
         public List<Match> GetMatchResult(List<Bill> billList, int maxLevel)
         {
@@ -56,27 +60,24 @@ namespace zj
                 _sum = 0;
                 foreach (int i in idxs)
                 {
-                    _matchedBills.Push(billList[i]);
+                    _matchedBills.Add(billList[i]);
                     _sum += billList[i].amount;
                 }
                 matchCount++;
                 if (isMatch)
-                    result.Add(Copy());
+                    result.Add(this.Copy());
             }
             result.Sort();
-            if (afterMatch != null)
+            if (afterMatch != null && matchCount > 0)
                 afterMatch(result, matchCount, billList.Count, maxLevel);
             return result;
         }
 
         public Match Copy()
         {
-            Match m = new Match(_toMatchBills, _allowDeviation);
-            foreach (Bill b in _matchedBills)
-            {
-                m.matchedBills.Push(b);
-                m.sum += b.amount;
-            }
+            Match m = new Match(this._toMatchBills, this._allowDeviation);
+            m._matchedBills = new List<Bill>(this._matchedBills.ToArray());
+            m._sum = this._sum;
             return m;
         }
 

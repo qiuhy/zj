@@ -7,7 +7,7 @@ namespace zj
 {
     class Program
     {
-        public delegate int MatchHandel(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
+        public delegate int[] MatchHandel(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
                                 , double maxDeviation, int maxDateRange, int maxLevel);
 
         public delegate Bill Str2Bill(String str);
@@ -113,7 +113,6 @@ namespace zj
                     {
                         b.id = irow - skipRows;
                         billList.Add(b);
-
                     }
                 }
             }
@@ -134,7 +133,6 @@ namespace zj
             }
             // if (c.Count > 0)
             return true;
-
         }
 
 
@@ -147,30 +145,42 @@ namespace zj
             IEnumerable<Bill> inBills, outBills;
             util.UsedTime ut = new util.UsedTime();
 
-            int totalMatched = 0;
+            int totalInMatched = 0;
+            int totalOutMatched = 0;
             long totalMatchCount = 0;
+            long curMatchCount = 0;
+
             void showMatchResult(List<Match> result, int matchCount, int listCount, int iLevel)
             {
-                totalMatchCount += matchCount;
-
+                curMatchCount += matchCount;
                 if (result.Count > 0)
                 {
-                    totalMatched += result[0].toMatchBills.Count;
                     logger.verbose(result[0]);
                 }
 
                 Console.SetCursorPosition(0, Console.CursorTop);
-                Console.Write($"{DateTime.Now:HH:mm:ss} {totalMatched,6}/{totalMatchCount,-10} "
+                Console.Write($"{DateTime.Now:HH:mm:ss} {curMatchCount,-10} "
                             + $" c({listCount,-3},{iLevel}) = {matchCount,-8}");
                 Console.SetCursorPosition(0, Console.CursorTop);
             };
 
+            string strFormat = "{0} matched: {1,5} ({2,3},{3,3}) used time:{4,-7:f3} count:{5,-10} speed:{6,10:f2}/s";
             void doMatch(string name, MatchHandel doit, double maxDeviation, int maxDateRange, int maxLevel)
             {
+                curMatchCount = 0;
                 ut.Add(name);
                 logger.info($"{name} maxDeviation:{maxDeviation} maxDateRange:{maxDateRange} maxLevel:{maxLevel}");
-                int matched = doit(inBills, outBills, maxDeviation, maxDateRange, maxLevel);
-                logger.info($"{name} used time:{ut.GetElapse(name).TotalSeconds:f3} matched:{matched}");
+                int[] matched = doit(inBills, outBills, maxDeviation, maxDateRange, maxLevel);
+                totalInMatched += matched[0];
+                totalOutMatched += matched[1];
+                totalMatchCount += curMatchCount;
+                logger.info(strFormat, name
+                        , matched[0] + matched[1]
+                        , matched[0]
+                        , matched[1]
+                        , ut.GetElapse(name).TotalSeconds
+                        , curMatchCount
+                        , curMatchCount / ut.GetElapse(name).TotalSeconds);
             }
 
             Match.afterMatch = showMatchResult;
@@ -182,12 +192,26 @@ namespace zj
                                 .OrderBy(x => x.date).ThenBy(x => x.id);
             outBills = billList.Where(x => x.isOut == true && x.matchid == null)
                                 .OrderBy(x => x.date).ThenBy(x => x.id);
-            logger.info($"inBills:{inBills.Count()} outBills:{outBills.Count()}");
+
+            int inBillsCount = inBills.Count();
+            int outBillsCount = outBills.Count();
+
+            logger.info($"Bills:{billList.Count}  ({inBillsCount} ,{outBillsCount})");
 
             doMatch("1vM", Analyze.Match_1vM, 0, 3, 5);
             doMatch("Mv1", Analyze.Match_Mv1, 0, 3, 5);
             doMatch("MvM", Analyze.Match_MvM, 0.001, 3, 5);
-            logger.info($"total matched:{totalMatched} used time:{ut.GetElapse().TotalSeconds:f3} match count:{totalMatchCount} speed:{totalMatchCount / ut.GetElapse().TotalSeconds:f2}/s");
+
+            logger.info($"SUM match(%) {(double)(totalInMatched + totalOutMatched) / (inBillsCount + outBillsCount),6:p2}"
+                        + $"({(double)totalInMatched / inBillsCount:p2}, {(double)totalOutMatched / outBillsCount:p2})");
+            logger.info(strFormat, "SUM"
+                        , totalInMatched + totalOutMatched
+                        , totalInMatched
+                        , totalOutMatched
+                        , ut.GetElapse().TotalSeconds
+                        , totalMatchCount
+                        , totalMatchCount / ut.GetElapse().TotalSeconds);
+
         }
     }
 }
