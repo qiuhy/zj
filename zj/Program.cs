@@ -7,9 +7,6 @@ namespace zj
 {
     class Program
     {
-        public delegate int[] MatchHandel(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
-                                , double maxDeviation, int maxDateRange, int maxLevel);
-
         public delegate Bill Str2Bill(String str);
 
         // List<Bill> billList = createBillList(6000, DateTime.Parse("2017-01-01"), 365, 5);
@@ -94,6 +91,44 @@ namespace zj
                 return null;
             }
         }
+        private static Bill str2Bill3(String str)
+        {
+            double toDouble(string s)
+            {
+                return Double.Parse(s.Replace("\"", String.Empty).Replace(",", String.Empty));
+            }
+            try
+            {
+                /*
+                交易日期	交易时间	活存账户明细号	摘要描述	借方发生额	贷方发生额	账户余额
+                交易机构号	对方账号	交易机构名称	对方户名	对方行名	柜员号	交易流水号	交易渠道	扩充备注
+                 */
+
+                Bill b = new Bill();
+                string[] data = str.Split('\t');
+                if ("".Equals(data[1]))
+                    data[1] = "00:00:00";
+                string sdate = $"{data[0]} {data[1]}";
+                b.date = DateTime.ParseExact(sdate, "yyyy-MM-dd HH:mm:ss"
+                        , System.Globalization.CultureInfo.CurrentCulture);
+                b.acct = "";
+                b.name = "";
+                b.to_acct = data[8].Trim();
+                b.to_name = data[10].Trim();
+                double amount1 = toDouble(data[4]);
+                double amount2 = toDouble(data[5]);
+                b.isOut = (amount1 != 0);
+                b.amount = amount1 + amount2;
+                b.balance = toDouble(data[6]);
+                b.comment = data[14].Trim() + " " + data[15].Trim();
+                return b;
+            }
+            catch (System.Exception)
+            {
+                // Console.WriteLine($"{e} {str}");
+                return null;
+            }
+        }
 
         public static List<Bill> readFile(string fn, int skipRows, Str2Bill toBill)
         {
@@ -111,7 +146,8 @@ namespace zj
                     Bill b = toBill(sLine);
                     if (b != null)
                     {
-                        b.id = irow - skipRows;
+                        if (b.id == 0)
+                            b.id = irow - skipRows;
                         billList.Add(b);
                     }
                 }
@@ -135,8 +171,6 @@ namespace zj
             return true;
         }
 
-
-
         public static void Main(string[] args)
         {
             Console.OutputEncoding = Encoding.UTF8;
@@ -150,8 +184,11 @@ namespace zj
             long totalMatchCount = 0;
             long curMatchCount = 0;
 
-            void showMatchResult(List<Match> result, int matchCount, int listCount, int iLevel)
+            void showMatchResult(List<Match> result, int listCount, int iLevel, double progress)
             {
+                if (listCount == 0)
+                    return;
+                long matchCount = util.Math.CombinationCount(listCount, iLevel, true);
                 curMatchCount += matchCount;
                 if (result.Count > 0)
                 {
@@ -159,18 +196,24 @@ namespace zj
                 }
 
                 Console.SetCursorPosition(0, Console.CursorTop);
-                Console.Write($"{DateTime.Now:HH:mm:ss} {curMatchCount,-10} "
-                            + $" c({listCount,-3},{iLevel}) = {matchCount,-8}");
+                Console.Write($"{DateTime.Now:HH:mm:ss} {curMatchCount,12} {progress,7:p2}"
+                            + $" c({listCount,-3},{iLevel}) = {matchCount,-10} ");
                 Console.SetCursorPosition(0, Console.CursorTop);
             };
 
+            Analyze a = new Analyze(showMatchResult);
             string strFormat = "{0} matched: {1,5} ({2,3},{3,3}) used time:{4,-7:f3} count:{5,-10} speed:{6,10:f2}/s";
-            void doMatch(string name, MatchHandel doit, double maxDeviation, int maxDateRange, int maxLevel)
+            void doMatch(string name, double maxDeviation, int maxDateRange, int inLevel, int outLevel)
             {
                 curMatchCount = 0;
                 ut.Add(name);
-                logger.info($"{name} maxDeviation:{maxDeviation} maxDateRange:{maxDateRange} maxLevel:{maxLevel}");
-                int[] matched = doit(inBills, outBills, maxDeviation, maxDateRange, maxLevel);
+                int[] matched;
+                logger.info($"{name} maxDeviation:{maxDeviation} maxDateRange:{maxDateRange}");
+                if ("Day".Equals(name))
+                    matched = a.Match_Day(inBills, outBills, maxDeviation, maxDateRange, inLevel, outLevel);
+                else
+                    matched = a.Match_MvM(inBills, outBills, maxDeviation, maxDateRange, inLevel, outLevel);
+
                 totalInMatched += matched[0];
                 totalOutMatched += matched[1];
                 totalMatchCount += curMatchCount;
@@ -183,14 +226,16 @@ namespace zj
                         , curMatchCount / ut.GetElapse(name).TotalSeconds);
             }
 
-            Match.afterMatch = showMatchResult;
-            logger.info($"read file");
+
+            logger.info("Start");
             // List<Bill> billList = readFile("data\\对公账户-新银基.txt", 2, str2Bill1);
             // List<Bill> billList = readFile("data\\对公账户-驰诚.txt", 2, str2Bill1);
-            List<Bill> billList = readFile("data\\对公账户-中和锐.txt", 2, str2Bill2);
-            inBills = billList.Where(x => x.isOut == false && x.matchid == null && x.amount > 5000)
+            // List<Bill> billList = readFile("data\\对公账户-中和锐.txt", 2, str2Bill2);
+            List<Bill> billList = readFile("data\\富中宝（建设银行）.txt", 6, str2Bill3);
+
+            inBills = billList.Where(x => x.isOut == false && x.matchid == 0 && x.amount >= 100)
                                 .OrderBy(x => x.date).ThenBy(x => x.id);
-            outBills = billList.Where(x => x.isOut == true && x.matchid == null)
+            outBills = billList.Where(x => x.isOut == true && x.matchid == 0 && x.amount >= 100)
                                 .OrderBy(x => x.date).ThenBy(x => x.id);
 
             int inBillsCount = inBills.Count();
@@ -198,10 +243,18 @@ namespace zj
 
             logger.info($"Bills:{billList.Count}  ({inBillsCount} ,{outBillsCount})");
 
-            doMatch("1vM", Analyze.Match_1vM, 0, 3, 5);
-            doMatch("Mv1", Analyze.Match_Mv1, 0, 3, 5);
-            doMatch("MvM", Analyze.Match_MvM, 0.001, 3, 5);
+            doMatch("1v1", 0, 1, 1, 1);
+            doMatch($"Day", 0, 1, 0, 0);
+            // for (int i = 2; i <= 5; i++)
+            // {
+            //     doMatch($"1v{i}", 0, 1, 1, i);
+            //     doMatch($"{i}v1", 0, 1, i, 1);
+            // }
+            // for (int i = 2; i <= 2; i++)
+            //     for (int j = 2; j <= 2; j++)
+            //         doMatch($"{i}v{j}", 0.001, 1, i, j);
 
+            logger.info(new String('-', 80));
             logger.info($"SUM match(%) {(double)(totalInMatched + totalOutMatched) / (inBillsCount + outBillsCount),6:p2}"
                         + $"({(double)totalInMatched / inBillsCount:p2}, {(double)totalOutMatched / outBillsCount:p2})");
             logger.info(strFormat, "SUM"
@@ -211,7 +264,6 @@ namespace zj
                         , ut.GetElapse().TotalSeconds
                         , totalMatchCount
                         , totalMatchCount / ut.GetElapse().TotalSeconds);
-
         }
     }
 }
