@@ -27,7 +27,8 @@ namespace util
         {
             if (n <= 0) return 0;
             if (r < 0) return 0;
-            if (r > n) r = n;
+            if (r > n)
+                if (allowAllLevel) r = n; else return 0;
             long result = combination(n, r);
             while (allowAllLevel && r > 1)
             {

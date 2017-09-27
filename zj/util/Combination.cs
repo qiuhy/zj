@@ -47,10 +47,9 @@ namespace util
 
             if (_stack.Count == 0) //初始值，[0]或 [0,1,2,...]
             {
-                if (_allowAllLevel)
-                    _stack.Push(0);
-                else
-                    for (int i = 0; i < _maxLevel; i++)
+                _stack.Push(0);
+                if (!_allowAllLevel)
+                    for (int i = 1; i < _maxLevel; i++)
                     {
                         _stack.Push(i);
                     }

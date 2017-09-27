@@ -184,11 +184,10 @@ namespace zj
             long totalMatchCount = 0;
             long curMatchCount = 0;
 
-            void showMatchResult(List<Match> result, int listCount, int iLevel, double progress)
+            void showMatchResult(List<Match> result, long matchCount, double progress)
             {
-                if (listCount == 0)
+                if (matchCount == 0)
                     return;
-                long matchCount = util.Math.CombinationCount(listCount, iLevel, true);
                 curMatchCount += matchCount;
                 if (result.Count > 0)
                 {
@@ -196,8 +195,7 @@ namespace zj
                 }
 
                 Console.SetCursorPosition(0, Console.CursorTop);
-                Console.Write($"{DateTime.Now:HH:mm:ss} {curMatchCount,12} {progress,7:p2}"
-                            + $" c({listCount,-3},{iLevel}) = {matchCount,-10} ");
+                Console.Write($"{DateTime.Now:HH:mm:ss} {matchCount,10} {curMatchCount,12} {progress,7:p2}");
                 Console.SetCursorPosition(0, Console.CursorTop);
             };
 
@@ -228,10 +226,10 @@ namespace zj
 
 
             logger.info("Start");
-            // List<Bill> billList = readFile("data\\对公账户-新银基.txt", 2, str2Bill1);
+            List<Bill> billList = readFile("data\\对公账户-新银基.txt", 2, str2Bill1);
             // List<Bill> billList = readFile("data\\对公账户-驰诚.txt", 2, str2Bill1);
             // List<Bill> billList = readFile("data\\对公账户-中和锐.txt", 2, str2Bill2);
-            List<Bill> billList = readFile("data\\富中宝（建设银行）.txt", 6, str2Bill3);
+            // List<Bill> billList = readFile("data\\富中宝（建设银行）.txt", 6, str2Bill3);
 
             inBills = billList.Where(x => x.isOut == false && x.matchid == 0 && x.amount >= 100)
                                 .OrderBy(x => x.date).ThenBy(x => x.id);
@@ -245,14 +243,14 @@ namespace zj
 
             doMatch("1v1", 0, 1, 1, 1);
             doMatch($"Day", 0, 1, 0, 0);
-            // for (int i = 2; i <= 5; i++)
-            // {
-            //     doMatch($"1v{i}", 0, 1, 1, i);
-            //     doMatch($"{i}v1", 0, 1, i, 1);
-            // }
-            // for (int i = 2; i <= 2; i++)
-            //     for (int j = 2; j <= 2; j++)
-            //         doMatch($"{i}v{j}", 0.001, 1, i, j);
+            for (int i = 2; i <= 4; i++)
+            {
+                doMatch($"1v{i}", 0, 1, 1, i);
+                doMatch($"{i}v1", 0, 1, i, 1);
+            }
+            for (int i = 2; i <= 4; i++)
+                for (int j = 2; j <= 4; j++)
+                    doMatch($"{i}v{j}", 0.001, 1, i, j);
 
             logger.info(new String('-', 80));
             logger.info($"SUM match(%) {(double)(totalInMatched + totalOutMatched) / (inBillsCount + outBillsCount),6:p2}"

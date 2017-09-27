@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Linq;
 using static util.util;
 
 namespace zj
@@ -50,38 +49,16 @@ namespace zj
 
         public bool isMatch { get => _allowDeviation == 0 ? diff == 0 : deviation < _allowDeviation; }
 
-        public List<Bill> toMatchBills
-        {
-            get { return _matchBills1; }
-            set
-            {
-                _matchBills1 = value;
-                foreach (Bill b in value)
-                {
-                    _sum1 += b.amount;
-                }
-            }
-        }
-
+        public List<Bill> toMatchBills { get => _matchBills1; }
         public List<Bill> matchedBills { get => _matchBills2; }
 
-        public void Add1(Bill b)
-        {
-            _matchBills1.Add(b);
-            _sum1 += b.amount;
-        }
-        public void Add2(Bill b)
-        {
-            _matchBills2.Add(b);
-            _sum2 += b.amount;
-        }
+        public void Add1(Bill b) { _matchBills1.Add(b); _sum1 += b.amount; }
+        public void Add2(Bill b) { _matchBills2.Add(b); _sum2 += b.amount; }
 
         public void Clear()
         {
-            _matchBills1.Clear();
-            _sum1 = 0;
-            _matchBills2.Clear();
-            _sum2 = 0;
+            _matchBills1.Clear(); _sum1 = 0;
+            _matchBills2.Clear(); _sum2 = 0;
         }
 
         public List<Match> GetMatchResult(List<Bill> billList, int maxLevel, bool reverseResult = false)
@@ -115,9 +92,8 @@ namespace zj
         public void UpdateMatchID()
         {
             int id = GetNextID();
-
-            _matchBills2.ForEach(b => b.matchid = id);
             _matchBills1.ForEach(b => b.matchid = id);
+            _matchBills2.ForEach(b => b.matchid = id);
         }
 
         public int CompareTo(Match m) => deviation.CompareTo(m.deviation);
