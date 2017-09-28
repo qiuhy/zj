@@ -167,47 +167,38 @@ namespace zj
         {
             List<Bill> billList = new List<Bill>();
             Encoding encode = util.util.GetFileEncoding(fn);
-            FileStream fs = new FileStream(fn, FileMode.Open);
-            StreamReader sr = new StreamReader(fs, encode);
-            int irow = 0;
-            while (!sr.EndOfStream)
+            using (FileStream fs = new FileStream(fn, FileMode.Open))
             {
-                string sLine = sr.ReadLine();
-                irow++;
-
-                if (irow > skipRows)
+                StreamReader sr = new StreamReader(fs, encode);
+                int irow = 0;
+                while (!sr.EndOfStream)
                 {
-                    Bill b = toBill(sLine);
-                    if (b != null)
+                    string sLine = sr.ReadLine();
+                    irow++;
+
+                    if (irow > skipRows)
                     {
-                        if (b.id == 0)
-                            b.id = irow - skipRows;
-                        billList.Add(b);
+                        Bill b = toBill(sLine);
+                        if (b != null)
+                        {
+                            if (b.id == 0)
+                                b.id = irow - skipRows;
+                            billList.Add(b);
+                        }
                     }
                 }
+                sr.Close();
             }
-            sr.Close();
-            fs.Close();
             return billList;
         }
 
-        private static bool test()
+        public static void zjAnalyze(List<Bill> billList)
         {
-            util.Combination c = new util.Combination(5, 4, true, true);
-            for (int i = 0; i < c.Count; i++)
-            // int i = 0;
-            // foreach (int[] a in c)
+            if (billList.Count == 0)
             {
-                // i++;
-                Console.WriteLine($"{i}:{util.StringUtil.Array2Str(c[i])}");
+                Console.WriteLine("无数据，退出");
+                return;
             }
-            // if (c.Count > 0)
-            return true;
-        }
-
-        public static void Main(string[] args)
-        {
-            Console.OutputEncoding = Encoding.Default;
             util.Logger logger = new util.Logger(logLevel: System.Diagnostics.SourceLevels.Information, log2File: true);
 
             IEnumerable<Bill> inBills, outBills;
@@ -258,14 +249,7 @@ namespace zj
                         , curMatchCount / ut.GetElapse(name).TotalSeconds);
             }
 
-
             logger.info("Start 开始");
-            // List<Bill> billList = readFile("data\\对公账户-新银基.txt", 2, str2Bill1);
-            // List<Bill> billList = readFile("data\\对公账户-驰诚.txt", 2, str2Bill1);
-            // List<Bill> billList = readFile("data\\对公账户-中和锐.txt", 2, str2Bill2);
-            // List<Bill> billList = readFile("data\\富中宝（建设银行）.txt", 6, str2Bill3);
-            List<Bill> billList = readFile("data\\富中宝贵客户对帐单（江苏银行）.txt", 1, str2Bill4);
-
             inBills = billList.Where(x => x.isOut == false && x.matchid == 0 && x.amount >= 100)
                                 .OrderBy(x => x.date).ThenBy(x => x.id);
             outBills = billList.Where(x => x.isOut == true && x.matchid == 0 && x.amount >= 100)
@@ -273,7 +257,6 @@ namespace zj
 
             int inBillsCount = inBills.Count();
             int outBillsCount = outBills.Count();
-
             logger.info($"Bills:{billList.Count}  ({inBillsCount} ,{outBillsCount})");
 
             doMatch("1v1", 0.001, 1, 1, 1);
@@ -297,6 +280,16 @@ namespace zj
                         , ut.GetElapse().TotalSeconds
                         , totalMatchCount
                         , totalMatchCount / ut.GetElapse().TotalSeconds);
+        }
+
+        public static void Main(string[] args)
+        {
+            // List<Bill> billList = readFile("data\\对公账户-新银基.txt", 2, str2Bill1);
+            // List<Bill> billList = readFile("data\\对公账户-驰诚.txt", 2, str2Bill1);
+            List<Bill> billList = readFile("data\\对公账户-中和锐.txt", 2, str2Bill2);
+            // List<Bill> billList = readFile("data\\富中宝（建设银行）.txt", 6, str2Bill3);
+            // List<Bill> billList = readFile("data\\富中宝贵客户对帐单（江苏银行）.txt", 1, str2Bill4);
+            zjAnalyze(billList);
         }
     }
 }

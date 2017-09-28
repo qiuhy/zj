@@ -128,6 +128,14 @@ namespace zj
             return new int[] { toMatchCount, matchedCount };
         }
 
+        /* 在日期范围内 n对m 匹配
+            IEnumerable<Bill> inBills;  //希望匹配的
+            IEnumerable<Bill> outBills; //可用来匹配的
+            double maxDeviation;        //最大误差，可为0
+            int maxDateRange;           //日期范围
+            int maxLevel;               //匹配数量范围
+            int[] return[0]:inBills 匹配中的数量,return[1]:outBills 匹配中的数量
+        */
         public int[] Match_MvM(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
                 , double maxDeviation, int maxDateRange, int n, int m)
         {
@@ -145,6 +153,15 @@ namespace zj
             }
         }
 
+        /* 在日期范围内顺序匹配
+            IEnumerable<Bill> inBills;  //希望匹配的
+            IEnumerable<Bill> outBills; //可用来匹配的
+            double maxDeviation;        //最大误差，可为0
+            int maxDateRange;           //日期范围
+            int inLevel;                 //未使用
+            int outLevel;               //未使用
+            int[] return[0]:inBills 匹配中的数量,return[1]:outBills 匹配中的数量
+        */
         public int[] Match_Day(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
             , double maxDeviation, int maxDateRange, int inLevel, int outLevel)
         {
@@ -157,15 +174,16 @@ namespace zj
             foreach (DateTime theDate in inDates)
             {
                 doneCount++;
-
                 bool matched = false;
+
+                IEnumerable<Bill> oneDayBills = inBills.Union(outBills)
+                                .Where(x => x.date >= theDate && x.date < theDate.AddDays(maxDateRange))
+                                .OrderBy(x => x.date).ThenBy(x => x.id);
                 do
                 {
-                    IEnumerable<Bill> oneDayBills = inBills.Where(x => x.date >= theDate && x.date < theDate.AddDays(maxDateRange))
-                                            .Union(outBills.Where(x => x.date >= theDate && x.date < theDate.AddDays(maxDateRange)))
-                                            .OrderBy(x => x.date).ThenBy(x => x.id);
                     matched = false;
                     match.Clear();
+                    int matchCount = oneDayBills.Count();
                     foreach (Bill b in oneDayBills)
                     {
                         if (b.isOut) match.Add2(b); else match.Add1(b);
@@ -180,7 +198,7 @@ namespace zj
                             {
                                 List<Match> result = new List<Match>();
                                 result.Add(new Match(match));
-                                afterMatch(result, oneDayBills.Count(), (double)doneCount / inCount);
+                                afterMatch(result, matchCount, (double)doneCount / inCount);
                             }
                             break;
                         }

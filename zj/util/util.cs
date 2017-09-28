@@ -56,9 +56,9 @@ namespace util
             return true;
         }
 
-        public static Encoding GetDataEncoding(byte[] data, Encoding encode = null)
+        public static Encoding GetDataEncoding(byte[] data, Encoding defaultEncoding = null)
         {
-            // Unicode 字节顺序标记 (BOM) （以十六进制格式），如下所示序列︰
+            // Unicode 字节顺序标记 BOM (Byte Ordered Mask) 十六进制格式︰
             // UTF-8:                           EF BB BF
             // Utf-16 big endian 字节顺序︰      FE FF
             // Utf-16 little-endian 字节顺序︰   FF FE
@@ -74,24 +74,16 @@ namespace util
                 if (bom.Length > 0 && isStartWith(data, bom))
                     return e;
             }
-            try
+            Encoding[] testEncoding = new Encoding[] {
+                                Encoding.UTF7, Encoding.GetEncoding(936),
+                                Encoding.UTF8, Encoding.UTF32, Encoding.Unicode };
+            foreach (Encoding e in testEncoding)
             {
-                Encoding e = Encoding.GetEncoding(936);
                 byte[] encoded = e.GetBytes(e.GetString(data));
                 if (isStartWith(data, encoded))
                     return e;
             }
-            catch (System.Exception)
-            {
-            }
-            foreach (EncodingInfo ei in Encoding.GetEncodings())
-            {
-                Encoding e = ei.GetEncoding();
-                byte[] encoded = e.GetBytes(e.GetString(data));
-                if (isStartWith(data, encoded))
-                    return e;
-            }
-            return (encode == null) ? Encoding.Default : encode;
+            return (defaultEncoding == null) ? Encoding.Default : defaultEncoding;
 
         }
         public static Encoding GetFileEncoding(string filename)
