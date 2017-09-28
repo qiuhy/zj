@@ -129,12 +129,46 @@ namespace zj
                 return null;
             }
         }
+        private static Bill str2Bill4(String str)
+        {
+            double toDouble(string s)
+            {
+                return Double.Parse(s.Replace("\"", String.Empty).Replace(",", String.Empty));
+            }
+            try
+            {
+                /*
+                交易日期	借贷标记	交易金额	帐户余额	交易时间	对方帐号	对方名称
+                 */
+
+                Bill b = new Bill();
+                string[] data = str.Split('\t');
+                string sdate = $"{data[0]} {data[4]:D6}";
+                b.date = DateTime.ParseExact(sdate, "yyyyMMdd HHmmss"
+                        , System.Globalization.CultureInfo.CurrentCulture);
+                b.acct = "";
+                b.name = "";
+                b.to_acct = data[5].Trim();
+                b.to_name = data[6].Trim();
+                b.isOut = data[1].StartsWith('0');
+                b.amount = toDouble(data[2]);
+                b.balance = toDouble(data[3]);
+                b.comment = "";
+                return b;
+            }
+            catch (System.Exception)
+            {
+                // Console.WriteLine($"{e} {str}");
+                return null;
+            }
+        }
 
         public static List<Bill> readFile(string fn, int skipRows, Str2Bill toBill)
         {
             List<Bill> billList = new List<Bill>();
+            Encoding encode = util.util.GetFileEncoding(fn);
             FileStream fs = new FileStream(fn, FileMode.Open);
-            StreamReader sr = new StreamReader(fs, Encoding.UTF8);
+            StreamReader sr = new StreamReader(fs, encode);
             int irow = 0;
             while (!sr.EndOfStream)
             {
@@ -173,7 +207,7 @@ namespace zj
 
         public static void Main(string[] args)
         {
-            Console.OutputEncoding = Encoding.UTF8;
+            Console.OutputEncoding = Encoding.Default;
             util.Logger logger = new util.Logger(logLevel: System.Diagnostics.SourceLevels.Information, log2File: true);
 
             IEnumerable<Bill> inBills, outBills;
@@ -225,11 +259,12 @@ namespace zj
             }
 
 
-            logger.info("Start");
-            List<Bill> billList = readFile("data\\对公账户-新银基.txt", 2, str2Bill1);
+            logger.info("Start 开始");
+            // List<Bill> billList = readFile("data\\对公账户-新银基.txt", 2, str2Bill1);
             // List<Bill> billList = readFile("data\\对公账户-驰诚.txt", 2, str2Bill1);
             // List<Bill> billList = readFile("data\\对公账户-中和锐.txt", 2, str2Bill2);
             // List<Bill> billList = readFile("data\\富中宝（建设银行）.txt", 6, str2Bill3);
+            List<Bill> billList = readFile("data\\富中宝贵客户对帐单（江苏银行）.txt", 1, str2Bill4);
 
             inBills = billList.Where(x => x.isOut == false && x.matchid == 0 && x.amount >= 100)
                                 .OrderBy(x => x.date).ThenBy(x => x.id);
@@ -241,15 +276,15 @@ namespace zj
 
             logger.info($"Bills:{billList.Count}  ({inBillsCount} ,{outBillsCount})");
 
-            doMatch("1v1", 0, 1, 1, 1);
-            doMatch($"Day", 0, 1, 0, 0);
-            for (int i = 2; i <= 4; i++)
+            doMatch("1v1", 0.001, 1, 1, 1);
+            doMatch($"Day", 0.001, 1, 0, 0);
+            for (int i = 2; i <= 5; i++)
             {
-                doMatch($"1v{i}", 0, 1, 1, i);
-                doMatch($"{i}v1", 0, 1, i, 1);
+                doMatch($"1v{i}", 0.001, 1, 1, i);
+                doMatch($"{i}v1", 0.001, 1, i, 1);
             }
-            for (int i = 2; i <= 4; i++)
-                for (int j = 2; j <= 4; j++)
+            for (int i = 2; i <= 5; i++)
+                for (int j = 2; j <= 5; j++)
                     doMatch($"{i}v{j}", 0.001, 1, i, j);
 
             logger.info(new String('-', 80));
