@@ -11,31 +11,27 @@ namespace zj
         private List<Bill> _matchBills2 = new List<Bill>();
         private double _sum1 = 0;
         private double _sum2 = 0;
-        private double _allowDeviation = 0;
 
-        public Match(double allowDeviation)
+        public Match()
         {
-            _allowDeviation = allowDeviation;
         }
-        public Match(double allowDeviation, Bill b)
-            : this(allowDeviation)
+        public Match(Bill b)
         {
             Add1(b);
         }
-        public Match(double allowDeviation, List<Bill> billList)
-            : this(allowDeviation)
+        public Match(IEnumerable<Bill> billList)
         {
             foreach (Bill b in billList)
                 Add1(b);
         }
-        public Match(double allowDeviation, List<Bill> billList1, List<Bill> billList2)
-            : this(allowDeviation, billList1)
+        public Match(IEnumerable<Bill> billList1, IEnumerable<Bill> billList2)
+            : this(billList1)
         {
             foreach (Bill b in billList2)
                 Add2(b);
         }
         public Match(Match m)
-            : this(m._allowDeviation, m._matchBills1, m._matchBills2) { }
+            : this(m._matchBills1, m._matchBills2) { }
 
         public double sum1 { get => _sum1; }
         public double sum2 { get => _sum2; }
@@ -47,7 +43,7 @@ namespace zj
         //偏离度
         public double deviation { get => Math.Abs(1 - rate); }
 
-        public bool isMatch { get => _allowDeviation == 0 ? diff == 0 : deviation < _allowDeviation; }
+        public bool isMatch(double allowDeviation) => allowDeviation == 0 ? diff == 0 : deviation < allowDeviation;
 
         public List<Bill> toMatchBills { get => _matchBills1; }
         public List<Bill> matchedBills { get => _matchBills2; }
@@ -55,33 +51,25 @@ namespace zj
         public void Add1(Bill b) { _matchBills1.Add(b); _sum1 += b.amount; }
         public void Add2(Bill b) { _matchBills2.Add(b); _sum2 += b.amount; }
 
-        public void Clear()
-        {
-            _matchBills1.Clear(); _sum1 = 0;
-            _matchBills2.Clear(); _sum2 = 0;
-        }
-
-        public List<Match> GetMatchResult(List<Bill> billList, int maxLevel, bool reverseResult = false)
+        public void Clear() { Clear1(); Clear2(); }
+        private void Clear1() { _matchBills1.Clear(); _sum1 = 0; }
+        private void Clear2() { _matchBills2.Clear(); _sum2 = 0; }
+        public List<Match> GetMatchResult(List<Bill> billList, double allowDeviation, int maxLevel)
         {
             List<Match> result = new List<Match>();
             int matchCount = 0;
-            foreach (int[] idxs in new util.Combination(billList.Count, maxLevel, false))
+            foreach (int[] idxs in new util.Combination(billList.Count, maxLevel))
             {
-                _matchBills2.Clear();
-                _sum2 = 0;
+                Clear2();
                 foreach (int i in idxs)
                 {
-                    _matchBills2.Add(billList[i]);
-                    _sum2 += billList[i].amount;
+                    Add2(billList[i]);
                 }
                 matchCount++;
-                if (isMatch)
+                if (isMatch(allowDeviation))
                 {
-                    if (reverseResult)
-                        result.Add(new Match(_allowDeviation, _matchBills2, _matchBills1));
-                    else
-                        result.Add(new Match(_allowDeviation, _matchBills1, _matchBills2));
-                    if (_allowDeviation == 0)
+                    result.Add(new Match(this));
+                    if (allowDeviation == 0)
                         break;
                 }
             }

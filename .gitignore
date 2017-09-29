@@ -2,4 +2,5 @@ bin/
 log/
 obj/
 bak/
+data/
 .vscode/

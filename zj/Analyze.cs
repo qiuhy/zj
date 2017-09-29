@@ -43,8 +43,8 @@ namespace zj
                                .OrderBy(x => x.date).ThenBy(x => x.id)
                                );
                 if (matchBills.Count == 0) continue;
-                Match match = new Match(maxDeviation, b);
-                List<Match> r = match.GetMatchResult(matchBills, maxLevel, maxDateRange < 0);
+                Match match = new Match(b);
+                List<Match> r = match.GetMatchResult(matchBills, maxDeviation, maxLevel);
                 if (r.Count > 0)
                 {
                     r[0].UpdateMatchID();
@@ -53,7 +53,7 @@ namespace zj
                 }
                 if (afterMatch != null)
                 {
-                    long matchCount = util.Math.CombinationCount(matchBills.Count, maxLevel, false);
+                    long matchCount = util.Math.CombinationCount(matchBills.Count, maxLevel);
                     afterMatch(r, matchCount, (double)doneCount / inCount);
                 }
             }
@@ -74,7 +74,7 @@ namespace zj
             int toMatchCount = 0;
             int matchedCount = 0;
             int doneCount = 0;
-            Match match = new Match(maxDeviation);
+            Match match = new Match();
             List<Match> curResult = null;
             IEnumerable<IGrouping<DateTime, Bill>> groupBills = inBills.GroupBy(x => x.date.Date);
             int inCount = groupBills.Count();
@@ -92,20 +92,20 @@ namespace zj
                 List<Bill> oneDayBills = new List<Bill>(item);
                 while (oneDayBills.Count > inLevel)
                 {
-                    foreach (int[] idxs in new util.Combination(oneDayBills.Count, inLevel, false))
+                    foreach (int[] idxs in new util.Combination(oneDayBills.Count, inLevel))
                     {
                         match.Clear();
                         foreach (int i in idxs)
                         {
                             match.Add1(oneDayBills[i]);
                         }
-                        DateTime toMatchDate = match.toMatchBills[0].date;
+                        DateTime toMatchDate = oneDayBills[idxs[0]].date;
 
                         List<Bill> curMatchBills = new List<Bill>(
                             matchBills.Where(x => x.date > toMatchDate
                                         && x.date < toMatchDate.AddDays(maxDateRange)));
 
-                        curResult = match.GetMatchResult(curMatchBills, outLevel);
+                        curResult = match.GetMatchResult(curMatchBills, maxDeviation, outLevel);
                         if (curResult.Count > 0)
                         {
                             Match curMatch = curResult[0];
@@ -116,8 +116,8 @@ namespace zj
                         }
                         if (afterMatch != null)
                         {
-                            long matchCount = util.Math.CombinationCount(curMatchBills.Count, outLevel, false)
-                                            * util.Math.CombinationCount(oneDayBills.Count, inLevel, false);
+                            long matchCount = util.Math.CombinationCount(curMatchBills.Count, outLevel)
+                                            * util.Math.CombinationCount(oneDayBills.Count, inLevel);
                             afterMatch(curResult, matchCount, (double)doneCount / inCount);
                         }
                         if (curResult.Count > 0) break;
@@ -170,7 +170,7 @@ namespace zj
             int doneCount = 0;
             List<DateTime> inDates = new List<DateTime>(inBills.Select(x => x.date.Date).Distinct());
             int inCount = inDates.Count;
-            Match match = new Match(maxDeviation);
+            Match match = new Match();
             foreach (DateTime theDate in inDates)
             {
                 doneCount++;
@@ -188,7 +188,7 @@ namespace zj
                     {
                         if (b.isOut) match.Add2(b); else match.Add1(b);
 
-                        if (match.isMatch)
+                        if (match.isMatch(maxDeviation))
                         {
                             matched = true;
                             toMatchCount += match.toMatchBills.Count;

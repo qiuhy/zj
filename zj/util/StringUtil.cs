@@ -22,7 +22,7 @@ namespace util
             return sb.ToString();
         }
 
-        public static String List2Str<T>(ICollection<T> l)
+        public static String Array2Str<T>(IEnumerable<T> l)
         {
             StringBuilder sb = new StringBuilder("[");
             bool bAppend = false;
@@ -34,7 +34,19 @@ namespace util
                     bAppend = true;
                 sb.Append(item.ToString());
             }
+            sb.Append("]");
             return sb.ToString();
+        }
+
+        public static String Number2Str(object val)
+        {
+            decimal d = Convert.ToDecimal(val);
+            if (d >= 100000000)
+                return $"{d / 100000000:f2}亿";
+            else if (d >= 10000)
+                return $"{d / 10000:f2}万";
+            else
+                return d.ToString();
         }
     }
 }
