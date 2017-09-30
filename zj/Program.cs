@@ -1,8 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Linq;
+using util;
+
 namespace zj
 {
     class Program
@@ -162,11 +164,39 @@ namespace zj
                 return null;
             }
         }
+        private static Bill str2Bill5(String str)
+        {
+            try
+            {
+                /*
+                账号	币种	卡号	交易时间戳	工作日期	借贷标志	发生额	余额	注释	对方帐户    ....
+                 */
+
+                Bill b = new Bill();
+                string[] data = str.Substring(2).Split("\"\t\"\t");
+                b.date = DateTime.ParseExact(data[3], "yyyy-MM-dd-HH.mm.ss.ffffff"
+                        , System.Globalization.CultureInfo.CurrentCulture);
+                b.acct = data[2];
+                b.name = "";
+                b.to_acct = data[9].Trim();
+                b.to_name = "";
+                b.isOut = data[5].StartsWith('借');
+                b.amount = Double.Parse(data[6]);
+                b.balance = Double.Parse(data[7]);
+                b.comment = data[8];
+                return b;
+            }
+            catch (System.Exception)
+            {
+                // Console.WriteLine($"{e} {str}");
+                return null;
+            }
+        }
 
         public static List<Bill> readFile(string fn, int skipRows, Str2Bill toBill)
         {
             List<Bill> billList = new List<Bill>();
-            Encoding encode = util.util.GetFileEncoding(fn);
+            Encoding encode = CommUtil.GetFileEncoding(fn);
             using (FileStream fs = new FileStream(fn, FileMode.Open))
             {
                 StreamReader sr = new StreamReader(fs, encode);
@@ -223,10 +253,10 @@ namespace zj
                 Console.WriteLine("无数据，退出");
                 return 0;
             }
-            util.Logger logger = new util.Logger(logLevel: System.Diagnostics.SourceLevels.Information);
+            Logger logger = new Logger(logLevel: System.Diagnostics.SourceLevels.Information);
 
             IEnumerable<Bill> inBills, outBills;
-            util.UsedTime ut = new util.UsedTime();
+            UsedTime ut = new UsedTime();
 
             int totalInMatched = 0;
             int totalOutMatched = 0;
@@ -269,15 +299,17 @@ namespace zj
                         , matched[0]
                         , matched[1]
                         , ut.GetElapse(name).TotalSeconds
-                        , util.StringUtil.Number2Str(curMatchCount)
-                        , util.StringUtil.Number2Str(curMatchCount / ut.GetElapse().TotalSeconds));
+                        , StringUtil.Number2Str(curMatchCount)
+                        , StringUtil.Number2Str(curMatchCount / ut.GetElapse(name).TotalSeconds, 2));
             }
 
             logger.info("Start 开始");
-            inBills = billList.Where(x => x.isOut == false && x.matchid == 0 && x.amount >= 100)
-                                .OrderBy(x => x.date).ThenBy(x => x.id);
-            outBills = billList.Where(x => x.isOut == true && x.matchid == 0 && x.amount >= 100)
-                                .OrderBy(x => x.date).ThenBy(x => x.id);
+            inBills = billList.Where(x => x.isOut == false && x.amount >= 100)
+                                .OrderBy(x => x.date).ThenBy(x => x.id)
+                                .ToList();
+            outBills = billList.Where(x => x.isOut == true && x.amount >= 100)
+                                .OrderBy(x => x.date).ThenBy(x => x.id)
+                                .ToList();
 
             int inBillsCount = inBills.Count();
             int outBillsCount = outBills.Count();
@@ -303,19 +335,21 @@ namespace zj
                         , totalInMatched
                         , totalOutMatched
                         , ut.GetElapse().TotalSeconds
-                        , util.StringUtil.Number2Str(totalMatchCount)
-                        , util.StringUtil.Number2Str(totalMatchCount / ut.GetElapse().TotalSeconds));
+                        , StringUtil.Number2Str(totalMatchCount)
+                        , StringUtil.Number2Str(totalMatchCount / ut.GetElapse().TotalSeconds, 2));
             return totalInMatched + totalOutMatched;
         }
 
         public static void Main(string[] args)
         {
             List<Bill> billList = readFile("data\\对公账户-新银基.txt", 2, str2Bill1);
+            // List<Bill> billList = readFile("data\\对公账户-达隆.txt", 2, str2Bill1);
             // List<Bill> billList = readFile("data\\对公账户-驰诚.txt", 2, str2Bill1);
+            // List<Bill> billList = readFile("data\\对公账户-银锐.txt", 2, str2Bill2);
             // List<Bill> billList = readFile("data\\对公账户-中和锐.txt", 2, str2Bill2);
             // List<Bill> billList = readFile("data\\富中宝（建设银行）.txt", 6, str2Bill3);
             // List<Bill> billList = readFile("data\\富中宝贵客户对帐单（江苏银行）.txt", 1, str2Bill4);
-
+            // List<Bill> billList = readFile("data\\工行-直属8027.txt", 1, str2Bill5);
             zjAnalyze(billList);
             saveResult($"data\\result_{DateTime.Now.Ticks}.txt", billList);
         }

@@ -26,4 +26,9 @@ namespace zj
                     + $" {comment + new string(' ', adds)} {(to_name + " " + to_acct).Trim()}";
         }
     }
+
+    class MergedBill : Bill
+    {
+        public int[] sourceID;
+    }
 }

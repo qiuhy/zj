@@ -1,11 +1,10 @@
 using System;
 using System.Collections;
-// using System.Collections;
 using System.Collections.Generic;
 
 namespace util
 {
-    public static class Math
+    public static class MathUtil
     {
         //采用查表法，提高阶乘的效率
         private static readonly long[] _factorial = new long[]

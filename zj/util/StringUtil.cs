@@ -38,13 +38,15 @@ namespace util
             return sb.ToString();
         }
 
-        public static String Number2Str(object val)
+        public static String Number2Str(object val, int decimals = 0)
         {
             decimal d = Convert.ToDecimal(val);
             if (d >= 100000000)
                 return $"{d / 100000000:f2}亿";
             else if (d >= 10000)
                 return $"{d / 10000:f2}万";
+            else if (decimals >= 0)
+                return Math.Round(d, decimals).ToString();
             else
                 return d.ToString();
         }

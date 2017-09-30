@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using static util.util;
+using util;
 namespace zj
 {
     class Analyze
@@ -14,37 +14,28 @@ namespace zj
             afterMatch = callback;
         }
 
-        private List<Bill> getBillListByIndex(List<Bill> BillList, int[] idxs)
-        {
-            List<Bill> bills = new List<Bill>();
-            foreach (int i in idxs)
-            {
-                bills.Add(BillList[i]);
-            }
-            return bills;
-        }
-
         private int[] match_1vM(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
-                                    , double maxDeviation, int maxDateRange, int maxLevel)
+                                    , double deviation, int dateRange, int level)
         {
             int toMatchCount = 0;
             int matchedCount = 0;
             int inCount = inBills.Count();
             int doneCount = 0;
 
-            foreach (Bill b in inBills.OrderBy(x => x.date).ThenBy(x => x.id))
+            foreach (Bill b in inBills.Where(x => x.matchid == 0).OrderBy(x => x.date).ThenBy(x => x.id))
             {
                 doneCount++;
-                DateTime minDate = (maxDateRange > 0) ? b.date : b.date.AddDays(maxDateRange);
-                DateTime maxDate = (maxDateRange < 0) ? b.date : b.date.AddDays(maxDateRange);
-
-                List<Bill> matchBills = new List<Bill>(
-                       outBills.Where(x => x.date > minDate && x.date < maxDate)
-                               .OrderBy(x => x.date).ThenBy(x => x.id)
-                               );
-                if (matchBills.Count == 0) continue;
                 Match match = new Match(b);
-                List<Match> r = match.GetMatchResult(matchBills, maxDeviation, maxLevel);
+
+                DateTime minDate = (dateRange > 0) ? b.date : b.date.AddDays(dateRange);
+                DateTime maxDate = (dateRange < 0) ? b.date : b.date.AddDays(dateRange);
+
+                List<Bill> matchBills = outBills.Where(x => x.date > minDate && x.date < maxDate && x.matchid == 0)
+                                                .OrderBy(x => x.date).ThenBy(x => x.id)
+                                                .ToList();
+                if (matchBills.Count == 0) continue;
+
+                List<Match> r = match.GetMatchResult(matchBills, deviation, level);
                 if (r.Count > 0)
                 {
                     r[0].UpdateMatchID();
@@ -53,46 +44,40 @@ namespace zj
                 }
                 if (afterMatch != null)
                 {
-                    long matchCount = util.Math.CombinationCount(matchBills.Count, maxLevel);
+                    long matchCount = MathUtil.CombinationCount(matchBills.Count, level);
                     afterMatch(r, matchCount, (double)doneCount / inCount);
                 }
             }
             return new int[] { toMatchCount, matchedCount };
         }
 
-        private int[] match_Mv1(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
-                                , double maxDeviation, int maxDateRange, int maxLevel)
-        {
-            //就是反过来1vM
-            return match_1vM(outBills, inBills, maxDeviation, -maxDateRange, maxLevel);
-        }
-
-
         private int[] match_MvM(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
-                                    , double maxDeviation, int maxDateRange, int inLevel, int outLevel)
+                                    , double deviation, int dateRange, int inLevel, int outLevel)
         {
             int toMatchCount = 0;
             int matchedCount = 0;
             int doneCount = 0;
             Match match = new Match();
             List<Match> curResult = null;
-            IEnumerable<IGrouping<DateTime, Bill>> groupBills = inBills.GroupBy(x => x.date.Date);
+            IEnumerable<IGrouping<DateTime, Bill>> groupBills = inBills.Where(x => x.matchid == 0)
+                                                                        .GroupBy(x => x.date.Date);
             int inCount = groupBills.Count();
 
             foreach (var item in groupBills)
             {
                 doneCount++;
                 if (item.Count() < inLevel) continue;
+                List<Bill> oneDayBills = item.ToList();
 
-                IEnumerable<Bill> matchBills = outBills.Where(x => x.date > item.Key
-                                            && x.date < item.Key.AddDays(maxDateRange + 1)
-                                            );
-                if (matchBills.Count() == 0) continue;
+                List<Bill> matchBills = outBills.Where(x => x.date > item.Key
+                                            && x.date < item.Key.AddDays(dateRange + 1)
+                                            && x.matchid == 0
+                                            ).ToList();
+                if (matchBills.Count < outLevel) continue;
 
-                List<Bill> oneDayBills = new List<Bill>(item);
                 while (oneDayBills.Count > inLevel)
                 {
-                    foreach (int[] idxs in new util.Combination(oneDayBills.Count, inLevel))
+                    foreach (int[] idxs in new Combination(oneDayBills.Count, inLevel))
                     {
                         match.Clear();
                         foreach (int i in idxs)
@@ -101,23 +86,24 @@ namespace zj
                         }
                         DateTime toMatchDate = oneDayBills[idxs[0]].date;
 
-                        List<Bill> curMatchBills = new List<Bill>(
-                            matchBills.Where(x => x.date > toMatchDate
-                                        && x.date < toMatchDate.AddDays(maxDateRange)));
+                        List<Bill> curMatchBills = matchBills.Where(x => x.date > toMatchDate
+                                                                    && x.date < toMatchDate.AddDays(dateRange)
+                                                                    && x.matchid == 0)
+                                                            .ToList();
 
-                        curResult = match.GetMatchResult(curMatchBills, maxDeviation, outLevel);
+                        curResult = match.GetMatchResult(curMatchBills, deviation, outLevel);
                         if (curResult.Count > 0)
                         {
                             Match curMatch = curResult[0];
                             curMatch.UpdateMatchID();
                             toMatchCount += curMatch.toMatchBills.Count;
                             matchedCount += curMatch.matchedBills.Count;
-                            oneDayBills = new List<Bill>(item.Where(x => x.matchid == 0));
+                            oneDayBills = item.Where(x => x.matchid == 0).ToList();
                         }
                         if (afterMatch != null)
                         {
-                            long matchCount = util.Math.CombinationCount(curMatchBills.Count, outLevel)
-                                            * util.Math.CombinationCount(oneDayBills.Count, inLevel);
+                            long matchCount = MathUtil.CombinationCount(curMatchBills.Count, outLevel)
+                                            * MathUtil.CombinationCount(oneDayBills.Count, inLevel);
                             afterMatch(curResult, matchCount, (double)doneCount / inCount);
                         }
                         if (curResult.Count > 0) break;
@@ -131,54 +117,64 @@ namespace zj
         /* 在日期范围内 n对m 匹配
             IEnumerable<Bill> inBills;  //希望匹配的
             IEnumerable<Bill> outBills; //可用来匹配的
-            double maxDeviation;        //最大误差，可为0
-            int maxDateRange;           //日期范围
-            int maxLevel;               //匹配数量范围
+            double deviation;        //最大误差，可为0
+            int dateRange;           //日期范围
+            int inLevel;               //inBills匹配数量范围
+            int outLevel;               //outBills匹配数量范围
             int[] return[0]:inBills 匹配中的数量,return[1]:outBills 匹配中的数量
         */
         public int[] Match_MvM(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
-                , double maxDeviation, int maxDateRange, int n, int m)
+                , double deviation, int dateRange, int inLevel, int outLevel)
         {
-            if (n == 1)
+            if (inLevel == 1)
             {
-                return match_1vM(inBills, outBills, maxDeviation, maxDateRange, m);
+                return match_1vM(inBills, outBills, deviation, dateRange, outLevel);
             }
-            else if (m == 1)
+            else if (outLevel == 1)
             {
-                return match_Mv1(inBills, outBills, maxDeviation, maxDateRange, n);
+                //就是反过来1vM
+                return match_1vM(inBills, outBills, deviation, -dateRange, inLevel);
             }
             else
             {
-                return match_MvM(inBills, outBills, maxDeviation, maxDateRange, n, m);
+                return match_MvM(inBills, outBills, deviation, dateRange, inLevel, outLevel);
             }
         }
 
         /* 在日期范围内顺序匹配
             IEnumerable<Bill> inBills;  //希望匹配的
             IEnumerable<Bill> outBills; //可用来匹配的
-            double maxDeviation;        //最大误差，可为0
-            int maxDateRange;           //日期范围
+            double deviation;        //最大误差，可为0
+            int dateRange;           //日期范围
             int inLevel;                 //未使用
             int outLevel;               //未使用
             int[] return[0]:inBills 匹配中的数量,return[1]:outBills 匹配中的数量
         */
         public int[] Match_Day(IEnumerable<Bill> inBills, IEnumerable<Bill> outBills
-            , double maxDeviation, int maxDateRange, int inLevel, int outLevel)
+            , double deviation, int dateRange, int inLevel, int outLevel)
         {
             int toMatchCount = 0;
             int matchedCount = 0;
             int doneCount = 0;
-            List<DateTime> inDates = new List<DateTime>(inBills.Select(x => x.date.Date).Distinct());
+            List<DateTime> inDates = inBills.Where(x => x.matchid == 0)
+                                            .Select(x => x.date.Date)
+                                            .Distinct()
+                                            .ToList();
             int inCount = inDates.Count;
             Match match = new Match();
             foreach (DateTime theDate in inDates)
             {
                 doneCount++;
                 bool matched = false;
+                IEnumerable<Bill> oneDayinBills = inBills.Where(x => x.date >= theDate
+                                                && x.date < theDate.AddDays(dateRange)
+                                                && x.matchid == 0);
+                IEnumerable<Bill> oneDayoutBills = outBills.Where(x => x.date >= theDate
+                                                && x.date < theDate.AddDays(dateRange)
+                                                && x.matchid == 0);
 
-                IEnumerable<Bill> oneDayBills = inBills.Union(outBills)
-                                .Where(x => x.date >= theDate && x.date < theDate.AddDays(maxDateRange))
-                                .OrderBy(x => x.date).ThenBy(x => x.id);
+                IEnumerable<Bill> oneDayBills = oneDayinBills.Concat(oneDayoutBills)
+                                                .OrderBy(x => x.date).ThenBy(x => x.id);
                 do
                 {
                     matched = false;
@@ -188,7 +184,7 @@ namespace zj
                     {
                         if (b.isOut) match.Add2(b); else match.Add1(b);
 
-                        if (match.isMatch(maxDeviation))
+                        if (match.isMatch(deviation))
                         {
                             matched = true;
                             toMatchCount += match.toMatchBills.Count;
@@ -206,6 +202,27 @@ namespace zj
                 } while (matched);
             }
             return new int[] { toMatchCount, matchedCount };
+        }
+
+        //单据匹配 同一天同一帐号按收付合并
+        private IEnumerable<MergedBill> merge_Bill(IEnumerable<Bill> bills)
+        {
+            return bills.GroupBy(x => new
+            {
+                date = x.date.Date,
+                to_acct = x.to_acct,
+                isOut = x.isOut
+            }).Select(g => new MergedBill
+            {
+                id = g.Min(x => x.id),
+                isOut = g.Key.isOut,
+                date = g.Key.date,
+                to_name = g.Max(x => x.to_name),
+                to_acct = g.Key.to_acct,
+                amount = g.Sum(x => x.amount),
+                comment = String.Join(',', g.Select(x => x.comment).Distinct()),
+                sourceID = g.Select(x => x.id).ToArray()
+            });
         }
     }
 }

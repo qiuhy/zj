@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using static util.util;
 
 namespace zj
 {
@@ -38,12 +37,17 @@ namespace zj
         public double diff { get => _sum1 - _sum2; }
 
         //匹配度
-        public double rate { get => _sum2 / _sum1; }
+        public double rate { get => (_sum1 == 0) ? 0 : _sum2 / _sum1; }
 
         //偏离度
         public double deviation { get => Math.Abs(1 - rate); }
 
-        public bool isMatch(double allowDeviation) => allowDeviation == 0 ? diff == 0 : deviation < allowDeviation;
+        public bool isMatch(double maxDeviation)
+        {
+            if (_matchBills1.Count == 0 || _matchBills2.Count == 0)
+                return false;
+            return maxDeviation == 0 ? diff == 0 : deviation < maxDeviation;
+        }
 
         public List<Bill> toMatchBills { get => _matchBills1; }
         public List<Bill> matchedBills { get => _matchBills2; }
@@ -54,11 +58,12 @@ namespace zj
         public void Clear() { Clear1(); Clear2(); }
         private void Clear1() { _matchBills1.Clear(); _sum1 = 0; }
         private void Clear2() { _matchBills2.Clear(); _sum2 = 0; }
-        public List<Match> GetMatchResult(List<Bill> billList, double allowDeviation, int maxLevel)
+
+        public List<Match> GetMatchResult(List<Bill> billList, double deviation, int level)
         {
             List<Match> result = new List<Match>();
             int matchCount = 0;
-            foreach (int[] idxs in new util.Combination(billList.Count, maxLevel))
+            foreach (int[] idxs in new util.Combination(billList.Count, level))
             {
                 Clear2();
                 foreach (int i in idxs)
@@ -66,10 +71,10 @@ namespace zj
                     Add2(billList[i]);
                 }
                 matchCount++;
-                if (isMatch(allowDeviation))
+                if (isMatch(deviation))
                 {
                     result.Add(new Match(this));
-                    if (allowDeviation == 0)
+                    if (deviation == 0)
                         break;
                 }
             }
@@ -79,7 +84,7 @@ namespace zj
 
         public void UpdateMatchID()
         {
-            int id = GetNextID();
+            int id = util.CommUtil.GetNextID();
             _matchBills1.ForEach(b => b.matchid = id);
             _matchBills2.ForEach(b => b.matchid = id);
         }

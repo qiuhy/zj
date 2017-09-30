@@ -5,9 +5,9 @@ using System.IO;
 
 namespace util
 {
-    public static class util
+    public static class CommUtil
     {
-        static util()
+        static CommUtil()
         {
             try
             {

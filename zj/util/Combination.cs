@@ -14,7 +14,7 @@ namespace util
         {
             _size = size;
             _maxLevel = maxLevel;
-            _count = Math.CombinationCount(_size, _maxLevel);
+            _count = MathUtil.CombinationCount(_size, _maxLevel);
         }
 
         public long Count { get => _count; }
@@ -91,7 +91,7 @@ namespace util
                 do
                 {
                     remainSize--;
-                    cc = Math.CombinationCount(remainSize, i);
+                    cc = MathUtil.CombinationCount(remainSize, i);
                 } while (cc > remainCount);
                 remainCount -= cc;
                 r[_maxLevel - i] = _size - remainSize - 1;
