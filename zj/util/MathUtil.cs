@@ -53,17 +53,26 @@ namespace util
             return result;
         }
 
-        public static T Min<T>(params T[] args)
+        public static T Min<T>(params T[] args) where T : IComparable<T>
         {
-            List<T> ls = new List<T>(args);
-            ls.Sort();
-            return ls[0];
+            T min = args[0];
+            for (int i = 1; i < args.Length; i++)
+            {
+                if (min.CompareTo(args[i]) > 0)
+                    min = args[i];
+            }
+            return min;
         }
-        public static T Max<T>(params T[] args)
+
+        public static T Max<T>(params T[] args) where T : IComparable<T>
         {
-            List<T> ls = new List<T>(args);
-            ls.Sort();
-            return ls[ls.Count - 1];
+            T max = args[0];
+            for (int i = 1; i < args.Length; i++)
+            {
+                if (max.CompareTo(args[i]) < 0)
+                    max = args[i];
+            }
+            return max;
         }
     }
 }
