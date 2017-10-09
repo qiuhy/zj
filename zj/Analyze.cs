@@ -205,23 +205,24 @@ namespace zj
         }
 
         //单据匹配 同一天同一帐号按收付合并
-        private IEnumerable<MergedBill> merge_Bill(IEnumerable<Bill> bills)
+        static public IEnumerable<MergedBill> Merge_Bill(IEnumerable<Bill> bills)
         {
             return bills.GroupBy(x => new
             {
                 date = x.date.Date,
                 to_acct = x.to_acct,
                 isOut = x.isOut
-            }).Select(g => new MergedBill
+            }).Where(g => g.Count() > 1)
+            .Select(g => new MergedBill
             {
                 id = g.Min(x => x.id),
                 isOut = g.Key.isOut,
-                date = g.Key.date,
+                date = g.Min(x => x.date),
                 to_name = g.Max(x => x.to_name),
                 to_acct = g.Key.to_acct,
                 amount = g.Sum(x => x.amount),
                 comment = String.Join(',', g.Select(x => x.comment).Distinct()),
-                sourceID = g.Select(x => x.id).ToArray()
+                sourceBill = g.ToArray()
             });
         }
     }

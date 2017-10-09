@@ -14,7 +14,10 @@ namespace zj
         public double amount;
         public double balance;
         public string comment;
-        public int matchid = 0;
+        private int _matchid = 0;
+
+        public virtual int matchid { get => _matchid; set => _matchid = value; }
+
         public int CompareTo(Bill b) => date.CompareTo(b.date);
 
         public override string ToString()
@@ -29,6 +32,27 @@ namespace zj
 
     class MergedBill : Bill
     {
-        public int[] sourceID;
+        public Bill[] sourceBill;
+
+        // public override matchid
+        public override int matchid
+        {
+            get => base.matchid; set
+            {
+                base.matchid = value;
+                foreach (Bill b in sourceBill)
+                    b.matchid = value;
+            }
+        }
+
+        public override string ToString()
+        {
+            StringBuilder str = new StringBuilder(base.ToString());
+            foreach (Bill b in sourceBill)
+            {
+                str.Append($"\n\t{b.ToString()}");
+            }
+            return str.ToString();
+        }
     }
 }
